@@ -64,11 +64,3 @@ If you want to modify or improve the script, you'll need to run it from the sour
 *   **Fixed Template:** The script is currently hard-coded to work with a specific company's contract format. Modifying it for other templates requires changing the source code.
 *   **Code Architecture:** As one of my first projects, the script was written in a procedural style. It consists of a long list of functions and lacks an object-oriented design, which can make it difficult to read, maintain, and extend.
 *   **Performance:** The current implementation is not optimized for speed and can be slow, especially if you were to adapt it to generate a large number of contracts at once.
-
-
-## 🗺️ Future Development (Roadmap)
-
-This project was a valuable first version to solve an immediate need. Due to time constraints and other priorities, development is currently on hold. However, here are some planned features for the future:
-
-*   [ ] **Database Integration:** Connect to a database (like PostgreSQL or SQLite) to pull property/client information and log generated contracts.
-*   [ ] **User Tracking:** Add functionality to track which team member generated each contract for accountability.

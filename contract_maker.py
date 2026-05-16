@@ -1,10 +1,7 @@
 from docx import Document
-from docx.text.paragraph import Paragraph
-from docx.text.run import Run
 import os
 import pandas as pd
 import re
-from datetime import datetime
 import numpy as np
 from dateutil.relativedelta import relativedelta
 from pythainlp.util import bahttext
@@ -17,6 +14,13 @@ excel_file = os.path.join(base_path, 'data_input.xlsx')
 lease_agreement = os.path.join(base_path, 'lease-contract-public.docx')
 destination_folder = os.path.join(base_path, 'output')
 owner_contract = os.path.join(base_path, 'owner-contract-public.docx')
+
+LATE_FEE_LOW = 500
+LATE_FEE_HIGH = 1000
+LATE_FEE_THRESHOLD = 30000
+
+SUFFIX_FONT_NAME = 'Cordia New (Body CS)'
+SUFFIX_FONT_SIZE_PT = 15
 
 df = pd.read_excel(excel_file)
 df_flipped = df.set_index('Attributes').transpose()
@@ -99,7 +103,7 @@ def lease_period(df, start_date, end_date):
 
 def late_fee_calculate(df, rent_price_column):
     df['late_fee_num'] = df[rent_price_column].apply(
-        lambda x: 500 if x < 30000 else 1000)
+        lambda x: LATE_FEE_LOW if x < LATE_FEE_THRESHOLD else LATE_FEE_HIGH)
 
 
 def format_day_with_suffix(day):
@@ -133,8 +137,6 @@ def convert_date_format(df, column):
             lambda x: format_day_with_suffix(x))
         df[column + '_month_year_en'] = df[column + '_month_en'] + \
             ' ' + df[column + '_year'].astype(str)
-    else:
-        pass
 
 
 def format_room(room):
@@ -218,23 +220,21 @@ def pay_duration(df, start_day_column):
 def replace_suffix(paragraph, old_text, new_text):
     for run in paragraph.runs:
         if old_text in run.text:
-            before, target, after = run.text.partition(old_text)
+            before, _, after = run.text.partition(old_text)
 
             run.text = before
 
-            run_element = run._element
-
             superscript_run = paragraph.add_run(new_text)
             superscript_run.font.superscript = True
-            superscript_run.font.name = 'Cordia New (Body CS)'
-            superscript_run.font.size = Pt(15)
+            superscript_run.font.name = SUFFIX_FONT_NAME
+            superscript_run.font.size = Pt(SUFFIX_FONT_SIZE_PT)
 
             run.element.addnext(superscript_run.element)
 
             if after:
                 after_run = paragraph.add_run(after)
-                after_run.font.name = 'Cordia New (Body CS)'
-                after_run.font.size = Pt(15)
+                after_run.font.name = SUFFIX_FONT_NAME
+                after_run.font.size = Pt(SUFFIX_FONT_SIZE_PT)
                 superscript_run._element.addnext(after_run._element)
 
 
@@ -392,8 +392,6 @@ no_change_format = {
     'ow1idpthplahor': 'ow1idp_th',
     'te1idpenplahor': 'te1idp_en',
     'te1idpthplahor': 'te1idp_th',
-
-
 }
 
 footer_placeholder_dictionary = {
@@ -474,12 +472,11 @@ for index2, row2 in df_flipped.iterrows():
         for tenant_2_dic, tenant_2_text_plahor in tenant_2_plahor.items():
             replace_text_with_format(
                 paragraph2, tenant_2_dic, tenant_2_text_plahor if row2['tenant_name_2'] else '')
-        if row2['tenant_name_2']:
-            for tenant_2_plahor_text, tenant_2_value_text in tenant_2_value_plahor.items():
-                replace_text_if_df_exist(
-                    paragraph2, tenant_2_plahor_text, row2[tenant_2_value_text])
+        for tenant_2_plahor_text, tenant_2_value_text in tenant_2_value_plahor.items():
+            replace_text_if_df_exist(
+                paragraph2, tenant_2_plahor_text, row2[tenant_2_value_text] if row2['tenant_name_2'] else '')
 
-        for i in range(2):
+        for _ in range(2):
             for suffix_pla, suffix_replace in superscript_dic.items():
                 replace_suffix(paragraph2, suffix_pla, suffix_replace)
 
@@ -496,11 +493,11 @@ for index2, row2 in df_flipped.iterrows():
     room_num2 = format_room(str(row2['room_number']))
 
     file_path2 = os.path.join(
-        destination_folder, f"Lease Agreement-{str(row2['project_name'])} {room_num}.docx")
+        destination_folder, f"Lease Agreement-{str(row2['project_name'])} {room_num2}.docx")
     iteration2 = 1
     while os.path.exists(file_path2):
         file_path2 = os.path.join(
-            destination_folder, f"Lease Agreement-{str(row2['project_name'])} {room_num}_{str(iteration2)}.docx")
+            destination_folder, f"Lease Agreement-{str(row2['project_name'])} {room_num2}_{str(iteration2)}.docx")
         iteration2 += 1
     doc2.save(file_path2)
 
@@ -508,7 +505,7 @@ for index2, row2 in df_flipped.iterrows():
     iterationpdf2 = 1
     while os.path.exists(pdf_file_path2):
         pdf_file_path2 = os.path.join(
-            destination_folder, f"Lease Agreement-{str(row2['project_name'])} {room_num}_{str(iteration2)}.pdf")
+            destination_folder, f"Lease Agreement-{str(row2['project_name'])} {room_num2}_{str(iterationpdf2)}.pdf")
         iterationpdf2 += 1
     convert(file_path2, pdf_file_path2)
 

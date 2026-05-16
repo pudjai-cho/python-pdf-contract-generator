@@ -1,3 +1,27 @@
+# Generated output
+output/
+
+# Executables
+contract_maker.exe
+
+# Legacy/draft files
 Lease_Contract_Draft.docx
 owner_contract.docx
-contract_maker.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Type checker
+.mypy_cache/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
