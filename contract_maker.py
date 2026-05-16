@@ -125,21 +125,23 @@ def convert_date_format(df, column):
         print(f"Warning: '{column}' has {invalid_mask.sum()} missing/invalid date(s) — skipping date formatting for this column.")
         return
     df[f'{column}_day'] = df[column].dt.day
-        df[f'{column}_month'] = df[column].dt.month
-        df[f'{column}_year'] = df[column].dt.year
-        df[f'{column}_month_en'] = df[column].dt.month_name()
-        df[f'{column}_month_th'] = df[f'{column}_month'].map(
-            thai_month_names)
-        df[column + '_year_th'] = df[column +
-                                     '_year'].apply(lambda x: f'พ.ศ. {x + 543}')
-        df[column + '_en'] = df[column + '_day'].astype(
-            str) + ' ' + df[column + '_month_en'] + ' ' + df[column + '_year'].astype(str)
-        df[column + '_th'] = df[column + '_day'].astype(
-            str) + ' ' + df[column + '_month_th'] + ' ' + df[column + '_year_th'].astype(str)
-        df[column + '_day_en_suffix'] = df[f'{column}_day'].apply(
-            lambda x: format_day_with_suffix(x))
-        df[column + '_month_year_en'] = df[column + '_month_en'] + \
-            ' ' + df[column + '_year'].astype(str)
+    df[f'{column}_month'] = df[column].dt.month
+    df[f'{column}_year'] = df[column].dt.year
+    df[f'{column}_month_en'] = df[column].dt.month_name()
+    df[f'{column}_month_th'] = df[f'{column}_month'].map(thai_month_names)
+    df[column + '_year_th'] = df[column + '_year'].apply(lambda x: f'พ.ศ. {x + 543}')
+    df[column + '_en'] = (
+        df[column + '_day'].astype(str) + ' ' +
+        df[column + '_month_en'] + ' ' +
+        df[column + '_year'].astype(str)
+    )
+    df[column + '_th'] = (
+        df[column + '_day'].astype(str) + ' ' +
+        df[column + '_month_th'] + ' ' +
+        df[column + '_year_th'].astype(str)
+    )
+    df[column + '_day_en_suffix'] = df[f'{column}_day'].apply(format_day_with_suffix)
+    df[column + '_month_year_en'] = df[column + '_month_en'] + ' ' + df[column + '_year'].astype(str)
 
 
 def format_room(room):
@@ -439,7 +441,7 @@ tenant_2_value_plahor = {
     'Tenantpassexp2plahor': 'tenant_passport_expire_date_2_en',
     'Tenantpassexp2thplahor': 'tenant_passport_expire_date_2_th',
     'te2idpenplahor': 'te2idp_en',
-    'te2idpthplahor': 'te2idp_th'
+    'te2idpthplahor': 'te2idp_th',
 }
 
 superscript_dic = {
