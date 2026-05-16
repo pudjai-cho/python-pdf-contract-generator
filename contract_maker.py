@@ -60,9 +60,10 @@ def idorpassport(df, input_column, output_column):
 
 
 def number_to_text(df, column):
-    df[column +
-        '_text_en'] = df[column].apply(lambda x: num2words(x).replace(", ", " "))
-    df[column + '_text_th'] = df[column].apply(bahttext)
+    df[column + '_text_en'] = df[column].apply(
+        lambda x: num2words(x).replace(", ", " ") if pd.notna(x) else '')
+    df[column + '_text_th'] = df[column].apply(
+        lambda x: bahttext(x) if pd.notna(x) else '')
 
 
 def calculate_two_months_deposit(df, column):
@@ -118,10 +119,12 @@ def format_day_with_suffix(day):
 
 def convert_date_format(df, column):
     df[column] = df[column].replace(r'^\s*$', np.nan, regex=True)
-    df[column] = pd.to_datetime(
-        df[column], errors='coerce')
-    if df[column].notna().all():
-        df[f'{column}_day'] = df[column].dt.day
+    df[column] = pd.to_datetime(df[column], errors='coerce')
+    invalid_mask = df[column].isna()
+    if invalid_mask.any():
+        print(f"Warning: '{column}' has {invalid_mask.sum()} missing/invalid date(s) — skipping date formatting for this column.")
+        return
+    df[f'{column}_day'] = df[column].dt.day
         df[f'{column}_month'] = df[column].dt.month
         df[f'{column}_year'] = df[column].dt.year
         df[f'{column}_month_en'] = df[column].dt.month_name()
@@ -140,11 +143,9 @@ def convert_date_format(df, column):
 
 
 def format_room(room):
-    if re.fullmatch(r"\d+/\d+", room):
-        room = re.sub(r"(\d+)/(\d+)", r"\1-\2", room)
+    room = re.sub(r"(\d+)/(\d+)", r"\1-\2", room)
+    if re.fullmatch(r"\d+-\d+", room):
         room = f"({room})"
-    else:
-        room = re.sub(r"(\d+)/(\d+)", r"\1-\2", room)
     return room
 
 
@@ -177,7 +178,7 @@ def replace_text_if_df_exist(paragraph, old_text, new_text):
 
 
 def add_comma(df, column):
-    df[column] = df[column].apply(lambda x: "{:,}".format(x))
+    df[column] = df[column].apply(lambda x: "{:,}".format(x) if pd.notna(x) else '')
 
 
 def pay_duration(df, start_day_column):
@@ -403,7 +404,6 @@ footer_placeholder_dictionary = {
     'WITNESSNAME2FTPLAHOR': 'witness_name_2_ft',
 }
 footer_placeholder_sign_dictionary = {
-
     'Iflandlord2plahor': ('Landlord………………………………', 'owner_name_2'),
     'Iftenant2plahor': ('Tenant…………………………………', 'tenant_name_2'),
     'Ifwitness2plahor': ('Witness………………………………', 'witness_name_2')
@@ -411,14 +411,12 @@ footer_placeholder_sign_dictionary = {
 
 owner_2_plahor = {
     'Ifowner2dicenplahor': ', OWNERNAME2PLAHOR, holding ow2idpenplahor no. OWNERPASS2PLAHOR of Ownernat2plahor Nationality Expiry date Ownerpassexp2plahor',
-    'Ifowner2dicthplahor': ', OWNERNAME2THPLAHOR ถือow2idpthplahorเลขที่ OWNERPASS2PLAHOR สัญชาติ Ownernatth2plahor หมดอายุวันที่ Ownerpassexpth2plahor'
-
+    'Ifowner2dicthplahor': ', OWNERNAME2THPLAHOR ถือow2idpthplahorเลขที่ OWNERPASS2PLAHOR สัญชาติ Ownernatth2plahor หมดอายุวันที่ Ownerpassexpth2plahor',
 }
 
 tenant_2_plahor = {
     'Iftenant2dicenplahor': ', TENANTNAME2PLAHOR, holding te2idpenplahor no. TENANTPASS2PLAHOR of Tenantnat2plahor Nationality Expiry date Tenantpassexp2plahor',
-    'Iftenant2dicthplahor': ', TENANTNAME2THPLAHOR ถือte2idpthplahorเลขที่ TENANTPASS2PLAHOR สัญชาติ Tenantnat2thplahor หมดอายุวันที่ Tenantpassexp2thplahor'
-
+    'Iftenant2dicthplahor': ', TENANTNAME2THPLAHOR ถือte2idpthplahorเลขที่ TENANTPASS2PLAHOR สัญชาติ Tenantnat2thplahor หมดอายุวันที่ Tenantpassexp2thplahor',
 }
 
 owner_2_value_plahor = {
@@ -430,8 +428,7 @@ owner_2_value_plahor = {
     'Ownerpassexp2plahor': 'owner_passport_expire_date_2_en',
     'Ownerpassexpth2plahor': 'owner_passport_expire_date_2_th',
     'ow2idpenplahor': 'ow2idp_en',
-    'ow2idpthplahor': 'ow2idp_th'
-
+    'ow2idpthplahor': 'ow2idp_th',
 }
 tenant_2_value_plahor = {
     'TENANTNAME2PLAHOR': 'tenant_name_2',
