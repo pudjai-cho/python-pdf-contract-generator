@@ -61,9 +61,9 @@ def idorpassport(df, input_column, output_column):
 
 def number_to_text(df, column):
     df[column + '_text_en'] = df[column].apply(
-        lambda x: num2words(x).replace(", ", " ") if pd.notna(x) else '')
+        lambda x: num2words(int(x)).replace(", ", " ") if pd.notna(x) else '')
     df[column + '_text_th'] = df[column].apply(
-        lambda x: bahttext(x) if pd.notna(x) else '')
+        lambda x: bahttext(int(x)) if pd.notna(x) else '')
 
 
 def calculate_two_months_deposit(df, column):
@@ -103,8 +103,17 @@ def lease_period(df, start_date, end_date):
 
 
 def late_fee_calculate(df, rent_price_column):
-    df['late_fee_num'] = df[rent_price_column].apply(
-        lambda x: LATE_FEE_LOW if x < LATE_FEE_THRESHOLD else LATE_FEE_HIGH)
+    def _calc(x):
+        if not pd.notna(x):
+            raise ValueError(
+                f"\n{'='*60}\n"
+                f"ERROR: '{rent_price_column}' contains a missing value.\n"
+                f"ALL rent price fields must be filled in correctly before running.\n"
+                f"Partial data is NOT acceptable — fix the Excel file and try again.\n"
+                f"{'='*60}"
+            )
+        return LATE_FEE_LOW if x < LATE_FEE_THRESHOLD else LATE_FEE_HIGH
+    df['late_fee_num'] = df[rent_price_column].apply(_calc)
 
 
 def format_day_with_suffix(day):
@@ -117,31 +126,36 @@ def format_day_with_suffix(day):
     return f"{day}{suffix}"
 
 
-def convert_date_format(df, column):
+def convert_date_format(df, column, allow_empty=False):
     df[column] = df[column].replace(r'^\s*$', np.nan, regex=True)
     df[column] = pd.to_datetime(df[column], errors='coerce')
     invalid_mask = df[column].isna()
     if invalid_mask.any():
-        print(f"Warning: '{column}' has {invalid_mask.sum()} missing/invalid date(s) — skipping date formatting for this column.")
-        return
+        if not allow_empty:
+            bad_indices = df.index[invalid_mask].tolist()
+            raise ValueError(
+                f"\n{'='*60}\n"
+                f"ERROR: Column '{column}' has {invalid_mask.sum()} missing or invalid date(s).\n"
+                f"Affected row(s): {bad_indices}\n"
+                f"ALL date fields must be filled in correctly before running.\n"
+                f"Partial data is NOT acceptable — fix the Excel file and try again.\n"
+                f"{'='*60}"
+            )
     df[f'{column}_day'] = df[column].dt.day
     df[f'{column}_month'] = df[column].dt.month
     df[f'{column}_year'] = df[column].dt.year
     df[f'{column}_month_en'] = df[column].dt.month_name()
     df[f'{column}_month_th'] = df[f'{column}_month'].map(thai_month_names)
-    df[column + '_year_th'] = df[column + '_year'].apply(lambda x: f'พ.ศ. {x + 543}')
-    df[column + '_en'] = (
-        df[column + '_day'].astype(str) + ' ' +
-        df[column + '_month_en'] + ' ' +
-        df[column + '_year'].astype(str)
-    )
-    df[column + '_th'] = (
-        df[column + '_day'].astype(str) + ' ' +
-        df[column + '_month_th'] + ' ' +
-        df[column + '_year_th'].astype(str)
-    )
-    df[column + '_day_en_suffix'] = df[f'{column}_day'].apply(format_day_with_suffix)
-    df[column + '_month_year_en'] = df[column + '_month_en'] + ' ' + df[column + '_year'].astype(str)
+    df[column + '_year_th'] = df[column + '_year'].apply(
+        lambda x: f'พ.ศ. {int(x) + 543}' if pd.notna(x) else '')
+    df[column + '_en'] = df[column].apply(
+        lambda x: f"{x.day} {x.strftime('%B')} {x.year}" if pd.notna(x) else '')
+    df[column + '_th'] = df[column].apply(
+        lambda x: f"{x.day} {thai_month_names[x.month]} พ.ศ. {x.year + 543}" if pd.notna(x) else '')
+    df[column + '_day_en_suffix'] = df[f'{column}_day'].apply(
+        lambda x: format_day_with_suffix(int(x)) if pd.notna(x) else '')
+    df[column + '_month_year_en'] = df[column].apply(
+        lambda x: f"{x.strftime('%B')} {x.year}" if pd.notna(x) else '')
 
 
 def format_room(room):
@@ -180,7 +194,7 @@ def replace_text_if_df_exist(paragraph, old_text, new_text):
 
 
 def add_comma(df, column):
-    df[column] = df[column].apply(lambda x: "{:,}".format(x) if pd.notna(x) else '')
+    df[column] = df[column].apply(lambda x: "{:,.0f}".format(x) if pd.notna(x) else '')
 
 
 def pay_duration(df, start_day_column):
@@ -238,15 +252,15 @@ def replace_suffix(paragraph, old_text, new_text):
                 after_run = paragraph.add_run(after)
                 after_run.font.name = SUFFIX_FONT_NAME
                 after_run.font.size = Pt(SUFFIX_FONT_SIZE_PT)
-                superscript_run._element.addnext(after_run._element)
+                superscript_run.element.addnext(after_run.element)
 
 
 convert_date_format(df_flipped, "rent_start_date")
 convert_date_format(df_flipped, "rent_end_date")
 convert_date_format(df_flipped, "owner_passport_expire_date")
-convert_date_format(df_flipped, "owner_passport_expire_date_2")
+convert_date_format(df_flipped, "owner_passport_expire_date_2", allow_empty=True)
 convert_date_format(df_flipped, "tenant_passport_expire_date")
-convert_date_format(df_flipped, "tenant_passport_expire_date_2")
+convert_date_format(df_flipped, "tenant_passport_expire_date_2", allow_empty=True)
 
 
 lease_period(df_flipped, "rent_start_date", "rent_end_date")
@@ -273,8 +287,10 @@ check_for_thai_name(df_flipped, 'tenant_name', 'tenant_name_th')
 check_for_thai_name(df_flipped, 'tenant_name_2', 'tenant_name_2_th')
 
 
+df_flipped['room_floor_number'] = df_flipped['room_floor_number'].apply(
+    lambda x: int(x) if pd.notna(x) else x)
 df_flipped['room_floor_number_suf'] = df_flipped['room_floor_number'].apply(
-    format_day_with_suffix)
+    lambda x: format_day_with_suffix(x) if pd.notna(x) else '')
 df_flipped['owner_name_2_ft'] = df_flipped['owner_name_2'].apply(
     lambda x: f'({x})' if pd.notna(x) else x)
 df_flipped['tenant_name_2_ft'] = df_flipped['tenant_name_2'].apply(
@@ -374,7 +390,7 @@ paragraph_placeholder_dictionary = {
     'Rentthplahor': 'rent_price_text_th',
     'Latefeenumplahor': 'late_fee_num',
     'Latefeetextenplahor': 'late_fee_num_text_en',
-    'Latefeetextthlahor': 'late_fee_num_text_th',
+    'Latefeetextthplahor': 'late_fee_num_text_th',
     'Leaseperiodenplahor': 'lease_period_en',
     'Leaseperiodthplahor': 'lease_period_th',
     'Depositplahor': 'rent_price_times_two',
@@ -429,6 +445,8 @@ owner_2_value_plahor = {
     'Ownernatth2plahor': 'owner_nationality_2_th',
     'Ownerpassexp2plahor': 'owner_passport_expire_date_2_en',
     'Ownerpassexpth2plahor': 'owner_passport_expire_date_2_th',
+}
+owner_2_no_change_format = {
     'ow2idpenplahor': 'ow2idp_en',
     'ow2idpthplahor': 'ow2idp_th',
 }
@@ -440,6 +458,8 @@ tenant_2_value_plahor = {
     'Tenantnat2thplahor': 'tenant_nationality_2_th',
     'Tenantpassexp2plahor': 'tenant_passport_expire_date_2_en',
     'Tenantpassexp2thplahor': 'tenant_passport_expire_date_2_th',
+}
+tenant_2_no_change_format = {
     'te2idpenplahor': 'te2idp_en',
     'te2idpthplahor': 'te2idp_th',
 }
@@ -467,6 +487,9 @@ for index2, row2 in df_flipped.iterrows():
         for owner_2_plahor_text, owner_2_value_text in owner_2_value_plahor.items():
             replace_text_if_df_exist(
                 paragraph2, owner_2_plahor_text, row2[owner_2_value_text] if row2['owner_name_2'] else '')
+        for owner_2_ncf_pla, owner_2_ncf_col in owner_2_no_change_format.items():
+            replace_text_without_format(
+                paragraph2, owner_2_ncf_pla, row2[owner_2_ncf_col] if row2['owner_name_2'] else '')
 
         for tenant_2_dic, tenant_2_text_plahor in tenant_2_plahor.items():
             replace_text_with_format(
@@ -474,6 +497,9 @@ for index2, row2 in df_flipped.iterrows():
         for tenant_2_plahor_text, tenant_2_value_text in tenant_2_value_plahor.items():
             replace_text_if_df_exist(
                 paragraph2, tenant_2_plahor_text, row2[tenant_2_value_text] if row2['tenant_name_2'] else '')
+        for tenant_2_ncf_pla, tenant_2_ncf_col in tenant_2_no_change_format.items():
+            replace_text_without_format(
+                paragraph2, tenant_2_ncf_pla, row2[tenant_2_ncf_col] if row2['tenant_name_2'] else '')
 
         for _ in range(2):
             for suffix_pla, suffix_replace in superscript_dic.items():
